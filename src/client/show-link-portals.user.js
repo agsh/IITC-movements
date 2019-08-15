@@ -1,12 +1,10 @@
 // ==UserScript==
-// @id             iitc-plugin-show-linked-portals@fstopienski
-// @name           IITC plugin: Show linked portals
+// @id             iitc-plugin-show-longest-links@gangleshanks
+// @name           IITC plugin: Show longest links
 // @category       Portal Info
-// @version        0.3.1.20170108.21732
-// @namespace      https://github.com/jonatkins/ingress-intel-total-conversion
-// @updateURL      https://static.iitc.me/build/release/plugins/show-linked-portals.meta.js
-// @downloadURL    https://static.iitc.me/build/release/plugins/show-linked-portals.user.js
-// @description    [iitc-2017-01-08-021732] Try to show the linked portals (image, name and link direction) in portal detail view and jump to linked portal on click.  Some details may not be available if the linked portal is not in the current view.
+// @version        0.0.1
+// @namespace      https://github.com/agsh/IITC-movements
+// @description    Try to show the longest links from the portal.
 // @include        https://*.ingress.com/intel*
 // @include        http://*.ingress.com/intel*
 // @match          https://*.ingress.com/intel*
@@ -26,8 +24,8 @@ function wrapper(plugin_info) {
 //PLUGIN AUTHORS: writing a plugin outside of the IITC build environment? if so, delete these lines!!
 //(leaving them in place might break the 'About IITC' page or break update checks)
     plugin_info.buildName = 'iitc';
-    plugin_info.dateTimeVersion = '20170108.21732';
-    plugin_info.pluginId = 'show-linked-portals';
+    plugin_info.dateTimeVersion = '20190815.1';
+    plugin_info.pluginId = 'show-longest-links';
 //END PLUGIN AUTHORS NOTE
 
 
@@ -35,10 +33,10 @@ function wrapper(plugin_info) {
 // PLUGIN START ////////////////////////////////////////////////////////
 
 // use own namespace for plugin
-    window.plugin.showLinkedPortal = function () {
+    window.plugin.showLongestLinks = function () {
     };
 
-    plugin.showLinkedPortal.previewOptions = {
+    plugin.showLongestLinks.previewOptions = {
         color: "#C33",
         opacity: 1,
         weight: 5,
@@ -47,12 +45,32 @@ function wrapper(plugin_info) {
         radius: 18,
     };
 
-    window.plugin.showLinkedPortal.portalDetail = function (data) {
-        plugin.showLinkedPortal.removePreview();
+    window.plugin.showLongestLinks.portalDetail = function (data) {
+        plugin.showLongestLinks.removePreview();
 
-        var portalLinks = getPortalLinks(data.guid);
+        // var portalLinks = getPortalLinks(data.guid);
         console.log('calcLength');
+        var results = calcLength(data.guid);
         console.log(calcLength(data.guid));
+
+        $('<div id="showLongestLinks"></div>').appendTo('#portaldetails');
+
+        results.forEach(result => {
+            var div = $('<div>' + result.length + '</div>').addClass('showLongestLink');
+            div.attr({
+                'data-route': result.route,
+                'data-length': result.length
+            })
+                .appendTo('#showLongestLinks');
+        });
+
+        $('#showLongestLinks')
+        // .on('click', '.showLinkedPortalLink', plugin.showLongestLinks.onRouteClick)
+            .on('mouseover', '.showLongestLink', plugin.showLongestLinks.onLongestLinkMouseOver)
+            .on('mouseout', '.showLongestLink', plugin.showLongestLinks.onLongestLinkMouseOut);
+
+        return;
+
         var length = portalLinks.in.length + portalLinks.out.length
 
         var c = 1;
@@ -169,13 +187,13 @@ function wrapper(plugin_info) {
         }
 
         $('#showLinkedPortalContainer')
-            .on('click', '.showLinkedPortalLink', plugin.showLinkedPortal.onLinkedPortalClick)
-            .on('mouseover', '.showLinkedPortalLink', plugin.showLinkedPortal.onLinkedPortalMouseOver)
-            .on('mouseout', '.showLinkedPortalLink', plugin.showLinkedPortal.onLinkedPortalMouseOut);
+            .on('click', '.showLinkedPortalLink', plugin.showLongestLinks.onLinkedPortalClick)
+            .on('mouseover', '.showLinkedPortalLink', plugin.showLongestLinks.onLinkedPortalMouseOver)
+            .on('mouseout', '.showLinkedPortalLink', plugin.showLongestLinks.onLinkedPortalMouseOut);
     }
 
-    plugin.showLinkedPortal.onLinkedPortalClick = function() {
-        plugin.showLinkedPortal.removePreview();
+    plugin.showLongestLinks.onLinkedPortalClick = function() {
+        plugin.showLongestLinks.removePreview();
 
         var element = $(this);
         var guid = element.attr('data-guid');
@@ -192,8 +210,8 @@ function wrapper(plugin_info) {
             zoomToAndShowPortal(guid, position);
     };
 
-    plugin.showLinkedPortal.onLinkedPortalMouseOver = function() {
-        plugin.showLinkedPortal.removePreview();
+    plugin.showLongestLinks.onLinkedPortalMouseOver = function() {
+        plugin.showLongestLinks.removePreview();
 
         var element = $(this);
         var lat = element.attr('data-lat');
@@ -204,27 +222,54 @@ function wrapper(plugin_info) {
         var remote = L.latLng(lat, lng);
         var local = portals[selectedPortal].getLatLng();
 
-        plugin.showLinkedPortal.preview = L.layerGroup().addTo(map);
+        plugin.showLongestLinks.preview = L.layerGroup().addTo(map);
 
-        L.circleMarker(remote, plugin.showLinkedPortal.previewOptions)
-            .addTo(plugin.showLinkedPortal.preview);
+        L.circleMarker(remote, plugin.showLongestLinks.previewOptions)
+            .addTo(plugin.showLongestLinks.preview);
 
-        L.geodesicPolyline([local, remote], plugin.showLinkedPortal.previewOptions)
-            .addTo(plugin.showLinkedPortal.preview);
+        L.geodesicPolyline([local, remote], plugin.showLongestLinks.previewOptions)
+            .addTo(plugin.showLongestLinks.preview);
     };
 
-    plugin.showLinkedPortal.onLinkedPortalMouseOut = function() {
-        plugin.showLinkedPortal.removePreview();
+
+
+
+
+    plugin.showLongestLinks.onLongestLinkMouseOver = function() {
+        plugin.showLongestLinks.removePreview();
+        var element = $(this);
+        var route = element.attr('data-route').split(',');
+        console.log('route', route);
+        plugin.showLongestLinks.preview = L.layerGroup().addTo(map);
+        route.forEach((portalId, i) => {
+            var myIcon = L.divIcon({html: '<h3>' + (i+1) + '</h3>'});
+            L.marker(window.portals[portalId]._latlng, {icon: myIcon}).addTo(plugin.showLongestLinks.preview);
+            L.circleMarker(window.portals[portalId]._latlng, plugin.showLongestLinks.previewOptions)
+                .addTo(plugin.showLongestLinks.preview);
+        });
+    }
+
+    plugin.showLongestLinks.onLongestLinkMouseOut = function() {
+        plugin.showLongestLinks.removePreview();
+    }
+
+
+
+
+
+
+    plugin.showLongestLinks.onLinkedPortalMouseOut = function() {
+        plugin.showLongestLinks.removePreview();
     };
 
-    plugin.showLinkedPortal.removePreview = function() {
-        if(plugin.showLinkedPortal.preview)
-            map.removeLayer(plugin.showLinkedPortal.preview);
-        plugin.showLinkedPortal.preview = null;
+    plugin.showLongestLinks.removePreview = function() {
+        if(plugin.showLongestLinks.preview)
+            map.removeLayer(plugin.showLongestLinks.preview);
+        plugin.showLongestLinks.preview = null;
     };
 
     var setup = function () {
-        window.addHook('portalDetailsUpdated', window.plugin.showLinkedPortal.portalDetail);
+        window.addHook('portalDetailsUpdated', window.plugin.showLongestLinks.portalDetail);
         $('<style>').prop('type', 'text/css').html('#level {\n	text-align: center;\n	margin-right: -0.5em;\n	position: relative;\n	right: 50%;\n	width: 1em;\n}\n.showLinkedPortalLink {\n	cursor: pointer;\n	position: absolute;\n	height: 40px;\n	width: 50px;\n	border-width: 1px;\n	overflow: hidden;\n	text-align: center;\n	background: #0e3d4e;\n}\n.showLinkedPortalLink.outgoing {\n	border-style: dashed;\n}\n.showLinkedPortalLink.incoming {\n	border-style: dotted;\n}\n.showLinkedPortalLink .minImg {\n	height: 40px;\n}\n.showLinkedPortalLink.outOfRange span {\n	display: block;\n	line-height: 13px;\n	font-size: 10px;\n}\n.showLinkedPortalOverflow {\n	left: 50%;\n	margin-left:-25px;\n	cursor: default;\n}\n\n.showLinkedPortalLink1, .showLinkedPortalLink2, .showLinkedPortalLink3, .showLinkedPortalLink4 {\n	left: 5px;\n}\n.showLinkedPortalLink5, .showLinkedPortalLink6, .showLinkedPortalLink7, .showLinkedPortalLink8 {\n	right: 5px;\n}\n.showLinkedPortalLink9, .showLinkedPortalLink10, .showLinkedPortalLink11, .showLinkedPortalLink12 {\n	left: 59px;\n}\n.showLinkedPortalLink13, .showLinkedPortalLink14, .showLinkedPortalLink15, .showLinkedPortalLink16 {\n	right: 59px\n}\n\n.showLinkedPortalLink1, .showLinkedPortalLink5, .showLinkedPortalLink9, .showLinkedPortalLink13 {\n	top: 23px;\n}\n.showLinkedPortalLink2, .showLinkedPortalLink6, .showLinkedPortalLink10, .showLinkedPortalLink14 {\n	top: 72px;\n}\n.showLinkedPortalLink3, .showLinkedPortalLink7, .showLinkedPortalLink11, .showLinkedPortalLink15 {\n	top: 122px;\n}\n.showLinkedPortalLink4, .showLinkedPortalLink8, .showLinkedPortalLink12, .showLinkedPortalLink16,\n.showLinkedPortalOverflow {\n	top: 171px;\n}\n\n').appendTo('head');
     }
 // PLUGIN END //////////////////////////////////////////////////////////
