@@ -63,19 +63,23 @@ function wrapper(plugin_info) {
             console.log('guid', guid);
             const getRoutes = (guid, checked, totalLength) => {
                 const links = getPortalLinks(guid);
-                console.log([...links.in, ...links.out]);
+                console.log('links', [...links.in, ...links.out]);
                 var testPoints = [...links.in, ...links.out]
                     .filter(linkId => {
-                        return (window.links[linkId] && window.links[linkId].options && window.links[linkId].options.data &&
-                            !checked.includes(window.links[linkId].options.data.dGuid))
+                        if (window.links[linkId] && window.links[linkId].options && window.links[linkId].options.data) {
+                            console.log('check for point', window.links[linkId].options.data.dGuid, !checked.includes(window.links[linkId].options.data.dGuid), window.links[linkId].options.data.oGuid, !checked.includes(window.links[linkId].options.data.oGuid));
+                            return (!checked.includes(window.links[linkId].options.data.dGuid) || !checked.includes(window.links[linkId].options.data.oGuid))
+                        } else {
+                            return false;
+                        }
                     })
                     .map(linkId => {
                         var link = window.links[linkId].options.data;
-                        var finishPointId = link.oGuid;
+                        var finishPointId = link.oGuid === guid ? link.dGuid : link.oGuid;
                         var length = L.latLng(link.oLatE6/1E6, link.oLngE6/1E6).distanceTo([link.dLatE6/1E6, link.dLngE6/1E6]);
 
                         return {
-                            pointId: window.links[linkId].options.data.dGuid,
+                            pointId: finishPointId,
                             length: length + totalLength
                         }
                     })
@@ -100,7 +104,7 @@ function wrapper(plugin_info) {
                 // [{routes: [id], length: 0}, {routes: [id1, id2], length: 1}], [{routes: [idn], length: 0}]
                 return routes.flat();
             };
-            return getRoutes(guid, [], 0);
+            return getRoutes(guid, [guid], 0);
         };
 
         function renderLinkedPortal(linkGuid) {
